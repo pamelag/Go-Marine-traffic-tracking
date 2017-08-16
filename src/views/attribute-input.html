@@ -1,0 +1,16 @@
+{{ define "attribute-input" }}
+
+  {{ if eq .AttributeDef.Input.Type "textarea" }}
+    {{ template "attribute-input-textarea" . }}
+  {{ else if eq .AttributeDef.Input.Type "date" }}
+    {{ template "attribute-input-date" . }}
+  {{ else if eq .AttributeDef.Input.Type "select" }}
+    {{ template "attribute-input-select" . }}
+  {{ else if eq .AttributeDef.Input.Type "text/remittanceadvice" }}
+    {{ template "attribute-input-filetext" . }}
+  {{ else if eq .AttributeDef.Input.Type "text/vessel" }}
+    {{ template "vessel-input-template" . }}
+  {{ else }}
+    {{ template "attribute-input-string" . }}
+  {{ end }}
+{{ end }}

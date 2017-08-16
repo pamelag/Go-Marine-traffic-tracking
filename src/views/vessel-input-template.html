@@ -1,0 +1,186 @@
+{{ define "vessel-input-template" }}
+
+<div ng-model="{{ .ngModel }}" i8-vessel-lookup i8-format="{{ .AttributeDef.Format }}" ng-controller="VesselLookupCtrl">
+  <div class="lookup-form" ng-if="!IsLoading && VesselResults.length == 0">
+    <input id="vessel-input" ng-model="VesselIMO"
+            class="col-xs-8 ng-pristine ng-untouched ng-valid ng-empty"
+            type="text" style="width: 66.66667%">
+    <div class="btn btn-secondary btn-sm" ng-click="Lookup(VesselIMO)">Lookup</div>
+  </div>
+  <div class="loading" ng-if="IsLoading">
+    <small><em>Loading Vessel</em></small>
+  </div>
+  <div class="vessel-results" ng-if="!IsLoading && VesselResults.length > 0">
+    <!-- Show the match -->
+    <span ng-bind="VesselResults[0].shipName"></span>
+    <div class="btn btn-sm btn-warning" ng-click="Reset()"><i class="icon icon-close"></i></div>
+    <div class="btn btn-sm btn-warning" ng-click="SetVessel(VesselResults[0])"><i class="icon">Y</i></div>
+  </div>
+</div>
+
+<script>
+  var url_vessel_finder = '/api/v1/vessel/getVessels/';
+  var url_get_location = '/api/v1/vessel/getLocation/';
+  $(document).ready(function() {
+
+    angular.module('{{ .ngModule }}')
+      .controller("VesselLookupCtrl", ["$scope", function($scope) {
+
+          $scope.VesselIMO = null
+          $scope.VesselResults = []
+          $scope.CurrentVesselData = {
+          }
+
+          $scope.IsLoading = false;
+
+      }])
+      .directive("i8VesselLookup", ["$timeout", "$http", function($timeout, $http) {
+        return {
+          restrict: 'A',
+          require: '?ngModel',
+          scope: false,
+          link: function(scope, element, attrs, ngModel) {
+
+            ngModel.$formatters.push(formatter)
+            function formatter(modelValue) {
+              if (modelValue) {
+                if (modelValue.hasOwnProperty('value')) {
+                  return modelValue.value
+                }
+              }
+            }
+
+            ngModel.$parsers.push(parser)
+            function parser(viewValue) {
+              return {
+                format: attrs.i8Format,
+                value: viewValue
+              }
+            }
+
+            scope.Lookup = function(imo) {
+              scope.Reset()
+              scope.IsLoading = true
+              console.log(scope.IsLoading)
+
+              /// Do the API call here
+              $http({
+                method: 'GET',
+                url: url_vessel_finder + imo
+              }).then(function successCallback(response) {
+                  $http({
+                    method: 'GET',
+                    url: url_get_location + imo
+                  }).then(function success(resp) {
+                    console.log("resp ", resp)
+                    if (resp.data.VesselLocations != null
+                      && resp.data.VesselLocations.length > 0) {
+                      var location = resp.data.VesselLocations[0];
+                      var response = {
+                        shipName: location.SHIPNAME,
+                        imo: location.IMO,
+                        lat: location.LAT,
+                        lon: location.LON,
+                        lastPort: location.LAST_PORT,
+                        currentPort: location.CURRENT_PORT,
+                        destination: location.DESTINATION,
+                        eta: location.ETA,
+                        ports: location.PORTS
+                      }
+                      scope.VesselResults.push(response)
+                      scope.IsLoading = false
+                      console.log("scope.IsLoading ", scope.IsLoading);
+                      console.log("scope.VesselResults.length ", scope.VesselResults.length);
+                    }
+                  }, function error(response) {
+                      console.log("error ", response)
+                  });
+                }, function errorCallback(response) {
+                    console.log("error ", response)
+                });
+            }
+
+            scope.SetVessel = function(vesselData) {
+              console.log("Setting Vessel", vesselData)
+              ngModel.$setViewValue(JSON.stringify(vesselData))
+            }
+
+            scope.Reset = function() {
+              scope.VesselResults = []
+              ngModel.$setViewValue(null)
+            }
+          }
+        }
+      }])
+  })
+
+
+  // Vessel Autocomplete options - vessel finder api
+  // $( "#vessel-input" ).autocomplete({
+  //   source: function( request, response ) {
+  //     $(".alert").hide();
+  //     $.ajax({
+  //       url: url_vessel_finder + $("#vessel-input").val(),
+  //       dataType: "json",
+  //       success: function( data ) {
+  //         imo = $("#vessel-input").val();
+  //         //$(".alert").hide();
+  //         if(data.list && data.list.length > 0) {
+  //           var responseArray = data.list;
+  //           var vessels = [];
+  //           var vessel = {};
+  //           for (var i=0; i<responseArray.length; i++) {
+  //             var option = vessels.push(responseArray[i].IMO + " - " + responseArray[i].NAME + " - " + responseArray[i].MMSI);
+  //             vessels.push(option);
+  //             vessel = {imo: responseArray[i].IMO, name: responseArray[i].NAME, mmsi: responseArray[i].MMSI};
+  //           }
+  //           response( vessels );
+  //           loadData(vessel);
+  //         } else {
+  //           $(".alert").show();
+  //         }
+  //       }
+  //     });
+  //   },
+  //   minLength: 3
+  // });
+
+  // function loadData(vessel) {
+  //   LookupData.clearAttribute();
+  //   $.ajax({
+  //     url: url_get_location + vessel.imo,
+  //     dataType: "json",
+  //     success: function (resp) {
+  //       console.log(resp);
+
+  //       if (resp.VesselLocations != null
+  //         && resp.VesselLocations.length > 0) {
+  //         var location = resp.VesselLocations[0];
+
+  //         //handling the response
+  //         var vessel = {
+  //           shipName: location.SHIPNAME,
+  //           imo: location.IMO,
+  //           lat: location.LAT,
+  //           lon: location.LON,
+  //           lastPort: location.LAST_PORT,
+  //           currentPort: location.CURRENT_PORT,
+  //           destination: location.DESTINATION,
+  //           eta: location.ETA,
+  //           ports: location.PORTS
+  //         }
+
+  //         LookupData.setAttribute(
+  //           {{ .ID }},
+  //           JSON.stringify(vessel),
+  //           true
+  //         );
+  //         console.log("LookupData.getAttribute() ", LookupData.getAttribute());
+  //       } else {
+  //         $(".alert").show();
+  //       }
+  //     }
+  //   });
+  // }
+</script>
+{{ end }}
